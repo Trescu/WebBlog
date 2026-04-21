@@ -1,0 +1,10 @@
+services:
+  webblog-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: webblog-api
+    ports:
+      - "5092:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
