@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WebBlog – Bejegyzés</title>
+    <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+    <header class="site-header">
+        <div class="container">
+            <h1><a href="/" class="brand-link">WebBlog</a></h1>
+            <p class="subtitle">Bejegyzés részletei és kommentek</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="page-section">
+            <a href="/" class="back-link">← Vissza a bejegyzésekhez</a>
+
+            <div id="post-status" class="status-box">Betöltés...</div>
+
+            <article id="post-container" class="single-post hidden">
+                <h2 id="post-title"></h2>
+                <p id="post-date" class="post-date"></p>
+                <div id="post-content" class="post-content"></div>
+            </article>
+        </section>
+
+        <section class="page-section">
+            <h3>Kommentek</h3>
+            <div id="comments-list" class="comments-list"></div>
+        </section>
+
+        <section class="page-section">
+            <h3>Új komment</h3>
+
+            <form id="comment-form" class="comment-form">
+                <div class="form-group">
+                    <label for="authorName">Név</label>
+                    <input id="authorName" name="authorName" type="text" maxlength="100" required />
+                </div>
+
+                <div class="form-group">
+                    <label for="text">Komment</label>
+                    <textarea id="text" name="text" rows="5" maxlength="1000" required></textarea>
+                </div>
+
+                <button type="submit" class="primary-button">Komment küldése</button>
+            </form>
+
+            <div id="form-status" class="form-status"></div>
+        </section>
+    </main>
+
+    <script src="post.js"></script>
+</body>
+</html>
