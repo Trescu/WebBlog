@@ -63,6 +63,7 @@ async function renderAuthNav(containerId) {
             <div class="auth-nav-inner">
                 <span class="auth-user">Belépve: ${escapeHtml(user.username)}</span>
                 <a class="nav-link-button" href="/create-post.html">Új bejegyzés</a>
+                <a class="nav-link-button nav-link-button--secondary" href="/my-posts.html">Saját bejegyzéseim</a>
                 <button id="logout-button" class="nav-link-button nav-link-button--secondary" type="button">Kilépés</button>
             </div>
         `;

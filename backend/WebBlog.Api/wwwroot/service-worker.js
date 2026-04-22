@@ -1,5 +1,5 @@
-const STATIC_CACHE = "webblog-static-v6";
-const API_CACHE = "webblog-api-v6";
+const STATIC_CACHE = "webblog-static-v8";
+const API_CACHE = "webblog-api-v8";
 
 const STATIC_ASSETS = [
     "/",
@@ -16,7 +16,11 @@ const STATIC_ASSETS = [
     "/register.js",
     "/create-post.js",
     "/offline.html",
-    "/sw-register.js"
+    "/sw-register.js",
+    "/my-posts.html",
+    "/my-posts.js",
+    "/edit-post.html",
+    "/edit-post.js",
 ];
 
 self.addEventListener("install", event => {
@@ -51,7 +55,7 @@ self.addEventListener("fetch", event => {
         return;
     }
 
-    if (url.pathname.startsWith("/api/posts")) {
+    if (url.pathname.startsWith("/api/")) {
         event.respondWith(networkFirstApi(request));
         return;
     }

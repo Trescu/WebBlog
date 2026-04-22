@@ -443,6 +443,127 @@ app.MapPost("/api/posts", async (ClaimsPrincipal user, CreatePostRequest request
     ));
 }).RequireAuthorization();
 
+app.MapGet("/api/my/posts", async (ClaimsPrincipal user, BlogDbContext db) =>
+{
+    string? userIdValue = user.FindFirstValue(ClaimTypes.NameIdentifier);
+    string? role = user.FindFirstValue(ClaimTypes.Role);
+
+    if (!int.TryParse(userIdValue, out int userId))
+    {
+        return Results.Unauthorized();
+    }
+
+    IQueryable<Post> query = db.Posts;
+
+    if (!string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase))
+    {
+        query = query.Where(p => p.AuthorUserId == userId);
+    }
+
+    var posts = await query
+        .OrderByDescending(p => p.CreatedAt)
+        .Select(p => new MyPostListItemDto(
+            p.Id,
+            p.Title,
+            p.CreatedAt,
+            p.AuthorName,
+            p.Comments.Count
+        ))
+        .ToListAsync();
+
+    return Results.Ok(posts);
+}).RequireAuthorization();
+
+app.MapPut("/api/posts/{id:int}", async (ClaimsPrincipal user, int id, UpdatePostRequest request, BlogDbContext db) =>
+{
+    var errors = new Dictionary<string, string[]>();
+
+    if (string.IsNullOrWhiteSpace(request.Title))
+    {
+        errors["title"] = new[] { "A cím kötelező." };
+    }
+
+    if (string.IsNullOrWhiteSpace(request.Content))
+    {
+        errors["content"] = new[] { "A tartalom kötelező." };
+    }
+
+    if (!string.IsNullOrWhiteSpace(request.Title) && request.Title.Length > 200)
+    {
+        errors["title"] = new[] { "A cím legfeljebb 200 karakter lehet." };
+    }
+
+    if (errors.Count > 0)
+    {
+        return Results.ValidationProblem(errors);
+    }
+
+    string? userIdValue = user.FindFirstValue(ClaimTypes.NameIdentifier);
+    string? role = user.FindFirstValue(ClaimTypes.Role);
+
+    if (!int.TryParse(userIdValue, out int userId))
+    {
+        return Results.Unauthorized();
+    }
+
+    var post = await db.Posts.FirstOrDefaultAsync(p => p.Id == id);
+    if (post is null)
+    {
+        return Results.NotFound(new { message = "A bejegyzés nem található." });
+    }
+
+    bool isAdmin = string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase);
+    bool isOwner = post.AuthorUserId == userId;
+
+    if (!isAdmin && !isOwner)
+    {
+        return Results.Forbid();
+    }
+
+    post.Title = request.Title.Trim();
+    post.Content = request.Content.Trim();
+
+    await db.SaveChangesAsync();
+
+    return Results.Ok(new CreatePostResponse(
+        post.Id,
+        post.Title,
+        post.Content,
+        post.CreatedAt,
+        post.AuthorName
+    ));
+}).RequireAuthorization();
+
+app.MapDelete("/api/posts/{id:int}", async (ClaimsPrincipal user, int id, BlogDbContext db) =>
+{
+    string? userIdValue = user.FindFirstValue(ClaimTypes.NameIdentifier);
+    string? role = user.FindFirstValue(ClaimTypes.Role);
+
+    if (!int.TryParse(userIdValue, out int userId))
+    {
+        return Results.Unauthorized();
+    }
+
+    var post = await db.Posts.FirstOrDefaultAsync(p => p.Id == id);
+    if (post is null)
+    {
+        return Results.NotFound(new { message = "A bejegyzés nem található." });
+    }
+
+    bool isAdmin = string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase);
+    bool isOwner = post.AuthorUserId == userId;
+
+    if (!isAdmin && !isOwner)
+    {
+        return Results.Forbid();
+    }
+
+    db.Posts.Remove(post);
+    await db.SaveChangesAsync();
+
+    return Results.NoContent();
+}).RequireAuthorization();
+
 app.Run();
 
 public record PostListItemDto(
@@ -511,6 +632,19 @@ public record CreatePostResponse(
     string Content,
     DateTime CreatedAt,
     string AuthorName
+);
+
+public record MyPostListItemDto(
+    int Id,
+    string Title,
+    DateTime CreatedAt,
+    string AuthorName,
+    int CommentCount
+);
+
+public record UpdatePostRequest(
+    string Title,
+    string Content
 );
 
 public partial class Program { }

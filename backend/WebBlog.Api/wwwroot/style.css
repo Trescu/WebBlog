@@ -241,6 +241,11 @@ body {
         width: 100%;
         justify-content: flex-start;
     }
+
+    .post-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
 }
 
 /* Header top */
@@ -287,4 +292,28 @@ body {
 .auth-page {
     max-width: 720px;
     margin: 0 auto 24px auto;
+}
+
+/* Wider auth page */
+.auth-page--wide {
+    max-width: 960px;
+}
+
+/* Post actions */
+.post-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+/* Danger button */
+.nav-link-button--danger {
+    background: #dc3545;
+    color: white;
+    border: none;
+}
+
+.nav-link-button--danger:hover {
+    background: #bb2d3b;
 }
