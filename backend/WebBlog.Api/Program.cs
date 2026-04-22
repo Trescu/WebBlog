@@ -564,6 +564,77 @@ app.MapDelete("/api/posts/{id:int}", async (ClaimsPrincipal user, int id, BlogDb
     return Results.NoContent();
 }).RequireAuthorization();
 
+app.MapGet("/api/admin/posts", async (ClaimsPrincipal user, BlogDbContext db) =>
+{
+    string? role = user.FindFirstValue(ClaimTypes.Role);
+
+    bool isAdmin = string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase);
+    if (!isAdmin)
+    {
+        return Results.Forbid();
+    }
+
+    var posts = await db.Posts
+        .OrderByDescending(p => p.CreatedAt)
+        .Select(p => new AdminPostListItemDto(
+            p.Id,
+            p.Title,
+            p.AuthorName,
+            p.CreatedAt,
+            p.Comments.Count
+        ))
+        .ToListAsync();
+
+    return Results.Ok(posts);
+}).RequireAuthorization();
+
+app.MapGet("/api/admin/comments", async (ClaimsPrincipal user, BlogDbContext db) =>
+{
+    string? role = user.FindFirstValue(ClaimTypes.Role);
+
+    bool isAdmin = string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase);
+    if (!isAdmin)
+    {
+        return Results.Forbid();
+    }
+
+    var comments = await db.Comments
+        .OrderByDescending(c => c.CreatedAt)
+        .Select(c => new AdminCommentListItemDto(
+            c.Id,
+            c.PostId,
+            c.Post != null ? c.Post.Title : "(ismeretlen bejegyzés)",
+            c.AuthorName,
+            c.Text,
+            c.CreatedAt
+        ))
+        .ToListAsync();
+
+    return Results.Ok(comments);
+}).RequireAuthorization();
+
+app.MapDelete("/api/admin/comments/{id:int}", async (ClaimsPrincipal user, int id, BlogDbContext db) =>
+{
+    string? role = user.FindFirstValue(ClaimTypes.Role);
+
+    bool isAdmin = string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase);
+    if (!isAdmin)
+    {
+        return Results.Forbid();
+    }
+
+    var comment = await db.Comments.FirstOrDefaultAsync(c => c.Id == id);
+    if (comment is null)
+    {
+        return Results.NotFound(new { message = "A komment nem található." });
+    }
+
+    db.Comments.Remove(comment);
+    await db.SaveChangesAsync();
+
+    return Results.NoContent();
+}).RequireAuthorization();
+
 app.Run();
 
 public record PostListItemDto(
@@ -645,6 +716,23 @@ public record MyPostListItemDto(
 public record UpdatePostRequest(
     string Title,
     string Content
+);
+
+public record AdminPostListItemDto(
+    int Id,
+    string Title,
+    string AuthorName,
+    DateTime CreatedAt,
+    int CommentCount
+);
+
+public record AdminCommentListItemDto(
+    int Id,
+    int PostId,
+    string PostTitle,
+    string AuthorName,
+    string Text,
+    DateTime CreatedAt
 );
 
 public partial class Program { }

@@ -1,5 +1,5 @@
-const STATIC_CACHE = "webblog-static-v8";
-const API_CACHE = "webblog-api-v8";
+const STATIC_CACHE = "webblog-static-v9";
+const API_CACHE = "webblog-api-v9";
 
 const STATIC_ASSETS = [
     "/",
@@ -21,6 +21,8 @@ const STATIC_ASSETS = [
     "/my-posts.js",
     "/edit-post.html",
     "/edit-post.js",
+    "/admin.html",
+    "/admin.js",
 ];
 
 self.addEventListener("install", event => {

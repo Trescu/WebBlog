@@ -317,3 +317,16 @@ body {
 .nav-link-button--danger:hover {
     background: #bb2d3b;
 }
+
+/* Admin sections */
+.admin-section + .admin-section {
+    margin-top: 32px;
+}
+
+/* Admin card text */
+.admin-card-text {
+    white-space: pre-wrap;
+    line-height: 1.6;
+    margin-top: 0;
+    margin-bottom: 16px;
+}
