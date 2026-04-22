@@ -1,5 +1,5 @@
-const STATIC_CACHE = "webblog-static-v9";
-const API_CACHE = "webblog-api-v9";
+const STATIC_CACHE = "webblog-static-v10";
+const API_CACHE = "webblog-api-v10";
 
 const STATIC_ASSETS = [
     "/",

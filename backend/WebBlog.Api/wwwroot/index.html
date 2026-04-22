@@ -23,6 +23,38 @@
                 <h2>Bejegyzések</h2>
             </div>
 
+            <form id="posts-filter-form" class="filter-panel">
+                <div class="filter-grid">
+                    <div class="form-group">
+                        <label for="search">Keresés</label>
+                        <input id="search" name="search" type="text" placeholder="Cím, tartalom vagy szerző..." />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="author-filter">Szerző</label>
+                        <select id="author-filter" name="author">
+                            <option value="">Összes szerző</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="sort-filter">Rendezés</label>
+                        <select id="sort-filter" name="sort">
+                            <option value="newest">Legújabb elöl</option>
+                            <option value="oldest">Legrégebbi elöl</option>
+                            <option value="title_asc">Cím szerint A–Z</option>
+                            <option value="title_desc">Cím szerint Z–A</option>
+                            <option value="comments_desc">Legtöbb komment</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="filter-actions">
+                    <button type="submit" class="primary-button">Szűrés</button>
+                    <button type="button" id="reset-filters-button" class="nav-link-button">Szűrők törlése</button>
+                </div>
+            </form>
+
             <div id="posts-status" class="status-box">Betöltés...</div>
             <div id="posts-list" class="post-list"></div>
         </section>

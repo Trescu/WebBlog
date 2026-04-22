@@ -159,10 +159,36 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-app.MapGet("/api/posts", async (BlogDbContext db) =>
+app.MapGet("/api/posts", async (string? search, string? author, string? sort, BlogDbContext db) =>
 {
-    var posts = await db.Posts
-        .OrderByDescending(p => p.CreatedAt)
+    IQueryable<Post> query = db.Posts;
+
+    if (!string.IsNullOrWhiteSpace(search))
+    {
+        string pattern = $"%{search.Trim()}%";
+
+        query = query.Where(p =>
+            EF.Functions.Like(p.Title, pattern) ||
+            EF.Functions.Like(p.Content, pattern) ||
+            EF.Functions.Like(p.AuthorName, pattern));
+    }
+
+    if (!string.IsNullOrWhiteSpace(author))
+    {
+        string normalizedAuthor = author.Trim();
+        query = query.Where(p => p.AuthorName == normalizedAuthor);
+    }
+
+    query = sort switch
+    {
+        "oldest" => query.OrderBy(p => p.CreatedAt),
+        "title_asc" => query.OrderBy(p => p.Title),
+        "title_desc" => query.OrderByDescending(p => p.Title),
+        "comments_desc" => query.OrderByDescending(p => p.Comments.Count).ThenByDescending(p => p.CreatedAt),
+        _ => query.OrderByDescending(p => p.CreatedAt)
+    };
+
+    var posts = await query
         .Select(p => new PostListItemDto(
             p.Id,
             p.Title,
@@ -174,6 +200,17 @@ app.MapGet("/api/posts", async (BlogDbContext db) =>
         .ToListAsync();
 
     return Results.Ok(posts);
+});
+
+app.MapGet("/api/posts/authors", async (BlogDbContext db) =>
+{
+    var authors = await db.Posts
+        .Select(p => p.AuthorName)
+        .Distinct()
+        .OrderBy(name => name)
+        .ToListAsync();
+
+    return Results.Ok(authors);
 });
 
 app.MapGet("/api/posts/{id:int}", async (int id, BlogDbContext db) =>
