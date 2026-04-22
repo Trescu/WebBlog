@@ -1,3 +1,10 @@
+initIndexPage();
+
+async function initIndexPage() {
+    await renderAuthNav("auth-nav");
+    await loadPosts();
+}
+
 async function loadPosts() {
     const statusBox = document.getElementById("posts-status");
     const postsList = document.getElementById("posts-list");
@@ -26,7 +33,7 @@ async function loadPosts() {
             article.innerHTML = `
                 <h3>${escapeHtml(post.title)}</h3>
                 <div class="post-meta">
-                    ${formatDate(post.createdAt)} · ${post.commentCount} komment
+                    ${formatDate(post.createdAt)} · ${post.commentCount} komment · Szerző: ${escapeHtml(post.authorName)}
                 </div>
                 <p>${escapeHtml(post.preview)}</p>
                 <a class="post-link" href="post.html?id=${post.id}">Megnyitás</a>
@@ -42,14 +49,3 @@ async function loadPosts() {
 function formatDate(value) {
     return new Date(value).toLocaleString("hu-HU");
 }
-
-function escapeHtml(value) {
-    return value
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
-}
-
-loadPosts();

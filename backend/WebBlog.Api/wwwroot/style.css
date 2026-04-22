@@ -23,6 +23,10 @@ body {
     color: white;
     padding: 32px 0;
     margin-bottom: 24px;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
 }
 
 .site-header h1 {
@@ -227,4 +231,60 @@ body {
         width: 100%;
         text-align: center;
     }
+
+    .header-top {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .auth-nav-inner {
+        width: 100%;
+        justify-content: flex-start;
+    }
+}
+
+/* Header top */
+.header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+}
+
+/* Auth nav */
+.auth-nav-inner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.auth-user {
+    font-weight: 700;
+    color: white;
+}
+
+.nav-link-button {
+    display: inline-block;
+    text-decoration: none;
+    background: white;
+    color: #0b3f46;
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+}
+
+.nav-link-button--secondary {
+    background: transparent;
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+/* Auth pages */
+.auth-page {
+    max-width: 720px;
+    margin: 0 auto 24px auto;
 }

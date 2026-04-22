@@ -10,5 +10,9 @@ public class Post
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+    public int AuthorUserId { get; set; }
+
+    public string AuthorName { get; set; } = string.Empty;
+
     public List<Comment> Comments { get; set; } = new();
 }

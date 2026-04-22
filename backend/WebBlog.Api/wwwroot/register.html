@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WebBlog – Regisztráció</title>
+    <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+    <header class="site-header">
+        <div class="container header-top">
+            <div>
+                <h1><a href="/" class="brand-link">WebBlog</a></h1>
+                <p class="subtitle">Regisztráció</p>
+            </div>
+            <div id="auth-nav"></div>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="page-section auth-page">
+            <h2>Regisztráció</h2>
+
+            <form id="register-form" class="comment-form">
+                <div class="form-group">
+                    <label for="username">Felhasználónév</label>
+                    <input id="username" name="username" type="text" maxlength="50" required />
+                </div>
+
+                <div class="form-group">
+                    <label for="email">E-mail</label>
+                    <input id="email" name="email" type="email" maxlength="100" required />
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Jelszó</label>
+                    <input id="password" name="password" type="password" minlength="6" required />
+                </div>
+
+                <button type="submit" class="primary-button">Regisztráció</button>
+            </form>
+
+            <div id="register-status" class="form-status"></div>
+        </section>
+    </main>
+
+    <script src="/auth.js"></script>
+    <script src="/register.js"></script>
+    <script src="/sw-register.js"></script>
+</body>
+</html>

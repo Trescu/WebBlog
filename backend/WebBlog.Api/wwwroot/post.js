@@ -9,11 +9,24 @@ const postContent = document.getElementById("post-content");
 const commentsList = document.getElementById("comments-list");
 const commentForm = document.getElementById("comment-form");
 const formStatus = document.getElementById("form-status");
+const authorGroup = document.getElementById("author-group");
 
-if (!postId) {
-    postStatus.textContent = "Hiányzik a bejegyzés azonosítója az URL-ből.";
-} else {
-    loadPost();
+let currentUser = null;
+
+initPostPage();
+
+async function initPostPage() {
+    await renderAuthNav("auth-nav");
+
+    currentUser = await getCurrentUser();
+    updateCommentFormForUser();
+
+    if (!postId) {
+        postStatus.textContent = "Hiányzik a bejegyzés azonosítója az URL-ből.";
+        return;
+    }
+
+    await loadPost();
 }
 
 commentForm.addEventListener("submit", async (event) => {
@@ -24,16 +37,14 @@ commentForm.addEventListener("submit", async (event) => {
     const authorName = document.getElementById("authorName").value.trim();
     const text = document.getElementById("text").value.trim();
 
+    const payload = currentUser
+        ? { text }
+        : { authorName, text };
+
     try {
-        const response = await fetch(`/api/posts/${postId}/comments`, {
+        const response = await apiFetch(`/api/posts/${postId}/comments`, {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                authorName,
-                text
-            })
+            body: JSON.stringify(payload)
         });
 
         if (response.status === 400) {
@@ -47,11 +58,17 @@ commentForm.addEventListener("submit", async (event) => {
             return;
         }
 
+        if (response.status === 401) {
+            formStatus.textContent = "A művelethez be kell jelentkezni.";
+            return;
+        }
+
         if (!response.ok) {
             throw new Error("Nem sikerült elküldeni a kommentet.");
         }
 
         commentForm.reset();
+        updateCommentFormForUser();
         formStatus.textContent = "Komment sikeresen elküldve.";
         await loadPost();
     } catch (error) {
@@ -75,7 +92,7 @@ async function loadPost() {
         const post = await response.json();
 
         postTitle.textContent = post.title;
-        postDate.textContent = formatDate(post.createdAt);
+        postDate.textContent = `${formatDate(post.createdAt)} · Szerző: ${escapeHtml(post.authorName)}`;
         postContent.textContent = post.content;
 
         renderComments(post.comments);
@@ -122,11 +139,20 @@ function formatDate(value) {
     return new Date(value).toLocaleString("hu-HU");
 }
 
-function escapeHtml(value) {
-    return value
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
+function updateCommentFormForUser() {
+    const authorInput = document.getElementById("authorName");
+
+    if (currentUser) {
+        authorGroup?.classList.add("hidden");
+        if (authorInput) {
+            authorInput.required = false;
+            authorInput.value = currentUser.username;
+        }
+    } else {
+        authorGroup?.classList.remove("hidden");
+        if (authorInput) {
+            authorInput.required = true;
+            authorInput.value = "";
+        }
+    }
 }

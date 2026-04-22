@@ -1,6 +1,12 @@
+using System.Security.Claims;
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
 using WebBlog.Api.Data;
 using WebBlog.Api.Models;
+using WebBlog.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -8,7 +14,27 @@ builder.Services.AddDbContext<BlogDbContext>(options =>
     options.UseSqlite("Data Source=blog.db"));
 
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "WebBlog.Api",
+        Version = "v1"
+    });
+
+    options.AddSecurityDefinition("bearer", new OpenApiSecurityScheme
+    {
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        Description = "JWT Authorization header using the Bearer scheme."
+    });
+
+    options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+    {
+        [new OpenApiSecuritySchemeReference("bearer", document)] = new List<string>()
+    });
+});
 
 builder.Services.AddCors(options =>
 {
@@ -20,6 +46,32 @@ builder.Services.AddCors(options =>
     });
 });
 
+string jwtKey = builder.Configuration["Jwt:Key"]
+    ?? throw new InvalidOperationException("A Jwt:Key nincs beállítva.");
+
+string jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "WebBlog.Api";
+string jwtAudience = builder.Configuration["Jwt:Audience"] ?? "WebBlog.Client";
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateIssuerSigningKey = true,
+            ValidateLifetime = true,
+            ValidIssuer = jwtIssuer,
+            ValidAudience = jwtAudience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+            ClockSkew = TimeSpan.Zero
+        };
+    });
+
+builder.Services.AddAuthorization();
+
+builder.Services.AddSingleton<JwtTokenService>();
+
 var app = builder.Build();
 
 app.UseSwagger();
@@ -28,25 +80,63 @@ app.UseCors("frontend");
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
+app.UseAuthentication();
+app.UseAuthorization();
+
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<BlogDbContext>();
     db.Database.EnsureCreated();
 
+    if (!db.Users.Any())
+    {
+        var adminPassword = PasswordHelper.HashPassword("Admin123!");
+        var userPassword = PasswordHelper.HashPassword("User123!");
+
+        var admin = new User
+        {
+            Username = "admin",
+            Email = "admin@webblog.local",
+            PasswordHash = adminPassword.hash,
+            PasswordSalt = adminPassword.salt,
+            Role = "Admin"
+        };
+
+        var user = new User
+        {
+            Username = "richi",
+            Email = "richi@webblog.local",
+            PasswordHash = userPassword.hash,
+            PasswordSalt = userPassword.salt,
+            Role = "User"
+        };
+
+        db.Users.Add(admin);
+        db.Users.Add(user);
+        db.SaveChanges();
+    }
+
     if (!db.Posts.Any())
     {
+        var adminUser = db.Users.First(u => u.Username == "admin");
+        var normalUser = db.Users.First(u => u.Username == "richi");
+
         var firstPost = new Post
         {
             Title = "Első bejegyzés",
             Content = "Ez az első teszt bejegyzés tartalma. Innen fogjuk felépíteni a blogplatformot.",
-            CreatedAt = DateTime.UtcNow.AddDays(-2)
+            CreatedAt = DateTime.UtcNow.AddDays(-2),
+            AuthorUserId = adminUser.Id,
+            AuthorName = adminUser.Username
         };
 
         var secondPost = new Post
         {
             Title = "Második bejegyzés",
             Content = "Ez a második bejegyzés. Ehhez már alapból tartozik néhány komment is a teszteléshez.",
-            CreatedAt = DateTime.UtcNow.AddDays(-1)
+            CreatedAt = DateTime.UtcNow.AddDays(-1),
+            AuthorUserId = normalUser.Id,
+            AuthorName = normalUser.Username
         };
 
         secondPost.Comments.Add(new Comment
@@ -78,7 +168,8 @@ app.MapGet("/api/posts", async (BlogDbContext db) =>
             p.Title,
             p.Content.Length > 180 ? p.Content.Substring(0, 180) + "..." : p.Content,
             p.CreatedAt,
-            p.Comments.Count
+            p.Comments.Count,
+            p.AuthorName
         ))
         .ToListAsync();
 
@@ -94,6 +185,7 @@ app.MapGet("/api/posts/{id:int}", async (int id, BlogDbContext db) =>
             p.Title,
             p.Content,
             p.CreatedAt,
+            p.AuthorName,
             p.Comments
                 .OrderByDescending(c => c.CreatedAt)
                 .Select(c => new CommentDto(
@@ -111,11 +203,14 @@ app.MapGet("/api/posts/{id:int}", async (int id, BlogDbContext db) =>
         : Results.Ok(post);
 });
 
-app.MapPost("/api/posts/{id:int}/comments", async (int id, CreateCommentRequest request, BlogDbContext db) =>
+app.MapPost("/api/posts/{id:int}/comments", async (ClaimsPrincipal user, int id, CreateCommentRequest request, BlogDbContext db) =>
 {
     var errors = new Dictionary<string, string[]>();
 
-    if (string.IsNullOrWhiteSpace(request.AuthorName))
+    string? loggedInUsername = user.FindFirstValue(ClaimTypes.Name);
+    bool isLoggedIn = !string.IsNullOrWhiteSpace(loggedInUsername);
+
+    if (!isLoggedIn && string.IsNullOrWhiteSpace(request.AuthorName))
     {
         errors["authorName"] = new[] { "A név megadása kötelező." };
     }
@@ -125,12 +220,12 @@ app.MapPost("/api/posts/{id:int}/comments", async (int id, CreateCommentRequest 
         errors["text"] = new[] { "A komment szövege kötelező." };
     }
 
-    if (request.AuthorName?.Length > 100)
+    if (!isLoggedIn && request.AuthorName is not null && request.AuthorName.Length > 100)
     {
         errors["authorName"] = new[] { "A név legfeljebb 100 karakter lehet." };
     }
 
-    if (request.Text?.Length > 1000)
+    if (request.Text is not null && request.Text.Length > 1000)
     {
         errors["text"] = new[] { "A komment legfeljebb 1000 karakter lehet." };
     }
@@ -149,8 +244,8 @@ app.MapPost("/api/posts/{id:int}/comments", async (int id, CreateCommentRequest 
     var comment = new Comment
     {
         PostId = id,
-        AuthorName = request.AuthorName.Trim(),
-        Text = request.Text.Trim(),
+        AuthorName = isLoggedIn ? loggedInUsername! : request.AuthorName!.Trim(),
+        Text = request.Text!.Trim(),
         CreatedAt = DateTime.UtcNow
     };
 
@@ -167,6 +262,187 @@ app.MapPost("/api/posts/{id:int}/comments", async (int id, CreateCommentRequest 
     return Results.Created($"/api/posts/{id}", result);
 });
 
+app.MapPost("/api/auth/register", async (RegisterRequest request, BlogDbContext db, JwtTokenService jwtTokenService) =>
+{
+    var errors = new Dictionary<string, string[]>();
+
+    if (string.IsNullOrWhiteSpace(request.Username))
+    {
+        errors["username"] = new[] { "A felhasználónév kötelező." };
+    }
+
+    if (string.IsNullOrWhiteSpace(request.Email))
+    {
+        errors["email"] = new[] { "Az e-mail cím kötelező." };
+    }
+
+    if (string.IsNullOrWhiteSpace(request.Password))
+    {
+        errors["password"] = new[] { "A jelszó kötelező." };
+    }
+
+    if (!string.IsNullOrWhiteSpace(request.Username) && request.Username.Length > 50)
+    {
+        errors["username"] = new[] { "A felhasználónév legfeljebb 50 karakter lehet." };
+    }
+
+    if (!string.IsNullOrWhiteSpace(request.Email) && request.Email.Length > 100)
+    {
+        errors["email"] = new[] { "Az e-mail cím legfeljebb 100 karakter lehet." };
+    }
+
+    if (!string.IsNullOrWhiteSpace(request.Password) && request.Password.Length < 6)
+    {
+        errors["password"] = new[] { "A jelszónak legalább 6 karakter hosszúnak kell lennie." };
+    }
+
+    if (errors.Count > 0)
+    {
+        return Results.ValidationProblem(errors);
+    }
+
+    string normalizedUsername = request.Username.Trim();
+    string normalizedEmail = request.Email.Trim().ToLowerInvariant();
+
+    bool usernameExists = await db.Users.AnyAsync(u => u.Username == normalizedUsername);
+    if (usernameExists)
+    {
+        return Results.Conflict(new { message = "Ez a felhasználónév már foglalt." });
+    }
+
+    bool emailExists = await db.Users.AnyAsync(u => u.Email == normalizedEmail);
+    if (emailExists)
+    {
+        return Results.Conflict(new { message = "Ez az e-mail cím már használatban van." });
+    }
+
+    var passwordData = PasswordHelper.HashPassword(request.Password);
+
+    var user = new User
+    {
+        Username = normalizedUsername,
+        Email = normalizedEmail,
+        PasswordHash = passwordData.hash,
+        PasswordSalt = passwordData.salt,
+        Role = "User"
+    };
+
+    db.Users.Add(user);
+    await db.SaveChangesAsync();
+
+    string token = jwtTokenService.CreateToken(user);
+
+    return Results.Ok(new AuthResponse(
+        token,
+        user.Username,
+        user.Email,
+        user.Role
+    ));
+});
+
+app.MapPost("/api/auth/login", async (LoginRequest request, BlogDbContext db, JwtTokenService jwtTokenService) =>
+{
+    if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
+    {
+        return Results.BadRequest(new { message = "A felhasználónév és a jelszó kötelező." });
+    }
+
+    string normalizedUsername = request.Username.Trim();
+
+    var user = await db.Users.FirstOrDefaultAsync(u => u.Username == normalizedUsername);
+    if (user is null)
+    {
+        return Results.Unauthorized();
+    }
+
+    bool validPassword = PasswordHelper.VerifyPassword(
+        request.Password,
+        user.PasswordHash,
+        user.PasswordSalt);
+
+    if (!validPassword)
+    {
+        return Results.Unauthorized();
+    }
+
+    string token = jwtTokenService.CreateToken(user);
+
+    return Results.Ok(new AuthResponse(
+        token,
+        user.Username,
+        user.Email,
+        user.Role
+    ));
+});
+
+app.MapGet("/api/auth/me", (ClaimsPrincipal user) =>
+{
+    string? id = user.FindFirstValue(ClaimTypes.NameIdentifier);
+    string? username = user.FindFirstValue(ClaimTypes.Name);
+    string? email = user.FindFirstValue(ClaimTypes.Email);
+    string? role = user.FindFirstValue(ClaimTypes.Role);
+
+    return Results.Ok(new CurrentUserResponse(
+        id ?? string.Empty,
+        username ?? string.Empty,
+        email ?? string.Empty,
+        role ?? string.Empty
+    ));
+}).RequireAuthorization();
+
+app.MapPost("/api/posts", async (ClaimsPrincipal user, CreatePostRequest request, BlogDbContext db) =>
+{
+    var errors = new Dictionary<string, string[]>();
+
+    if (string.IsNullOrWhiteSpace(request.Title))
+    {
+        errors["title"] = new[] { "A cím kötelező." };
+    }
+
+    if (string.IsNullOrWhiteSpace(request.Content))
+    {
+        errors["content"] = new[] { "A tartalom kötelező." };
+    }
+
+    if (!string.IsNullOrWhiteSpace(request.Title) && request.Title.Length > 200)
+    {
+        errors["title"] = new[] { "A cím legfeljebb 200 karakter lehet." };
+    }
+
+    if (errors.Count > 0)
+    {
+        return Results.ValidationProblem(errors);
+    }
+
+    string? userIdValue = user.FindFirstValue(ClaimTypes.NameIdentifier);
+    string? username = user.FindFirstValue(ClaimTypes.Name);
+
+    if (!int.TryParse(userIdValue, out int userId) || string.IsNullOrWhiteSpace(username))
+    {
+        return Results.Unauthorized();
+    }
+
+    var post = new Post
+    {
+        Title = request.Title.Trim(),
+        Content = request.Content.Trim(),
+        CreatedAt = DateTime.UtcNow,
+        AuthorUserId = userId,
+        AuthorName = username
+    };
+
+    db.Posts.Add(post);
+    await db.SaveChangesAsync();
+
+    return Results.Created($"/api/posts/{post.Id}", new CreatePostResponse(
+        post.Id,
+        post.Title,
+        post.Content,
+        post.CreatedAt,
+        post.AuthorName
+    ));
+}).RequireAuthorization();
+
 app.Run();
 
 public record PostListItemDto(
@@ -174,7 +450,8 @@ public record PostListItemDto(
     string Title,
     string Preview,
     DateTime CreatedAt,
-    int CommentCount
+    int CommentCount,
+    string AuthorName
 );
 
 public record CommentDto(
@@ -189,12 +466,51 @@ public record PostDetailDto(
     string Title,
     string Content,
     DateTime CreatedAt,
+    string AuthorName,
     List<CommentDto> Comments
 );
 
 public record CreateCommentRequest(
-    string AuthorName,
-    string Text
+    string? AuthorName,
+    string? Text
+);
+
+public record RegisterRequest(
+    string Username,
+    string Email,
+    string Password
+);
+
+public record LoginRequest(
+    string Username,
+    string Password
+);
+
+public record AuthResponse(
+    string Token,
+    string Username,
+    string Email,
+    string Role
+);
+
+public record CurrentUserResponse(
+    string Id,
+    string Username,
+    string Email,
+    string Role
+);
+
+public record CreatePostRequest(
+    string Title,
+    string Content
+);
+
+public record CreatePostResponse(
+    int Id,
+    string Title,
+    string Content,
+    DateTime CreatedAt,
+    string AuthorName
 );
 
 public partial class Program { }

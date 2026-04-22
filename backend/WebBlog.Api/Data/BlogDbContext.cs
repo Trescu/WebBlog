@@ -11,6 +11,7 @@ public class BlogDbContext : DbContext
 
     public DbSet<Post> Posts => Set<Post>();
     public DbSet<Comment> Comments => Set<Comment>();
+    public DbSet<User> Users => Set<User>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -22,6 +23,10 @@ public class BlogDbContext : DbContext
 
             entity.Property(p => p.Content)
                 .IsRequired();
+
+            entity.Property(p => p.AuthorName)
+                .IsRequired()
+                .HasMaxLength(50);
 
             entity.HasMany(p => p.Comments)
                 .WithOne(c => c.Post)
@@ -38,6 +43,33 @@ public class BlogDbContext : DbContext
             entity.Property(c => c.Text)
                 .IsRequired()
                 .HasMaxLength(1000);
+        });
+
+        modelBuilder.Entity<User>(entity =>
+        {
+            entity.Property(u => u.Username)
+                .IsRequired()
+                .HasMaxLength(50);
+
+            entity.Property(u => u.Email)
+                .IsRequired()
+                .HasMaxLength(100);
+
+            entity.Property(u => u.PasswordHash)
+                .IsRequired();
+
+            entity.Property(u => u.PasswordSalt)
+                .IsRequired();
+
+            entity.Property(u => u.Role)
+                .IsRequired()
+                .HasMaxLength(20);
+
+            entity.HasIndex(u => u.Username)
+                .IsUnique();
+
+            entity.HasIndex(u => u.Email)
+                .IsUnique();
         });
     }
 }

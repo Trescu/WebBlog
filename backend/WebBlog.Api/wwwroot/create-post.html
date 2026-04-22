@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WebBlog – Új bejegyzés</title>
+    <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+    <header class="site-header">
+        <div class="container header-top">
+            <div>
+                <h1><a href="/" class="brand-link">WebBlog</a></h1>
+                <p class="subtitle">Új bejegyzés létrehozása</p>
+            </div>
+            <div id="auth-nav"></div>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="page-section auth-page">
+            <a href="/" class="back-link">← Vissza a főoldalra</a>
+
+            <h2>Új bejegyzés</h2>
+
+            <form id="create-post-form" class="comment-form">
+                <div class="form-group">
+                    <label for="title">Cím</label>
+                    <input id="title" name="title" type="text" maxlength="200" required />
+                </div>
+
+                <div class="form-group">
+                    <label for="content">Tartalom</label>
+                    <textarea id="content" name="content" rows="8" required></textarea>
+                </div>
+
+                <button type="submit" class="primary-button">Bejegyzés létrehozása</button>
+            </form>
+
+            <div id="create-post-status" class="form-status"></div>
+        </section>
+    </main>
+
+    <script src="/auth.js"></script>
+    <script src="/create-post.js"></script>
+    <script src="/sw-register.js"></script>
+</body>
+</html>
